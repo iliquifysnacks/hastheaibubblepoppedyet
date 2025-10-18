@@ -3,9 +3,13 @@
   "version": "1.0.0",
   "description": "A simple website answering the important question: Has the AI bubble popped yet?",
   "scripts": {
-    "generate-og": "node generate-og-image.js"
+    "generate-og": "node generate-og-image.js",
+    "db:create": "wrangler d1 create bubble-predictions",
+    "db:init": "wrangler d1 execute bubble-predictions --file=./schema/schema.sql",
+    "deploy": "wrangler pages deploy"
   },
   "devDependencies": {
-    "puppeteer": "^23.0.0"
+    "puppeteer": "^23.0.0",
+    "wrangler": "^3.0.0"
   }
 }

@@ -5,4 +5,4 @@ compatibility_date = "2025-01-20"
 [[d1_databases]]
 binding = "DB"
 database_name = "bubble-predictions"
-database_id = "placeholder"  # Will be filled after creating the database
+database_id = "d61d132f-eabf-4d2d-b839-71bbc1329e32"
