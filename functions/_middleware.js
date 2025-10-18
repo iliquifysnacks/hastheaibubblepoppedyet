@@ -48,17 +48,37 @@ async function handleSubmitPrediction(request, env, corsHeaders) {
       });
     }
 
+    // Check for duplicate username (if username is provided)
+    if (username && username.trim() !== '') {
+      const existingUser = await env.DB.prepare(
+        'SELECT id FROM predictions WHERE username = ? AND username IS NOT NULL'
+      )
+        .bind(username.trim())
+        .first();
+
+      if (existingUser) {
+        return new Response(
+          JSON.stringify({ error: 'This username has already submitted a prediction' }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+    }
+
     // Calculate dates
     const submittedAt = new Date().toISOString();
     const predictedDate = new Date();
     predictedDate.setDate(predictedDate.getDate() + parseInt(daysUntilPop));
 
     // Insert into database
+    const trimmedUsername = username && username.trim() !== '' ? username.trim() : null;
     const result = await env.DB.prepare(
       'INSERT INTO predictions (username, days_until_pop, submitted_at, predicted_date) VALUES (?, ?, ?, ?)'
     )
       .bind(
-        username || null,
+        trimmedUsername,
         daysUntilPop,
         submittedAt,
         predictedDate.toISOString()
