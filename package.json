@@ -1,0 +1,11 @@
+{
+  "name": "hastheaibubblepoppedyet",
+  "version": "1.0.0",
+  "description": "A simple website answering the important question: Has the AI bubble popped yet?",
+  "scripts": {
+    "generate-og": "node generate-og-image.js"
+  },
+  "devDependencies": {
+    "puppeteer": "^23.0.0"
+  }
+}
