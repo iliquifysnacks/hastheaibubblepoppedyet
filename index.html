@@ -118,6 +118,9 @@
             margin-top: 3rem;
             max-width: 500px;
             width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         .prediction-form {
@@ -126,6 +129,12 @@
             border-radius: 20px;
             padding: 2rem;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+
+        .prediction-form.hidden {
+            display: none;
         }
 
         .form-title {
@@ -205,6 +214,8 @@
             background: rgba(255, 255, 255, 0.15);
             border-radius: 15px;
             display: none;
+            width: 100%;
+            text-align: center;
         }
 
         .result.show {
@@ -227,6 +238,12 @@
         .result-stats {
             color: rgba(255, 255, 255, 0.8);
             font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+
+        .result-footer {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.85rem;
             margin-top: 0.5rem;
         }
 
@@ -280,6 +297,7 @@
                 <div class="result-title">Community Prediction:</div>
                 <div class="result-date" id="resultDate"></div>
                 <div class="result-stats" id="resultStats"></div>
+                <div class="result-footer">hastheaibubblepoppedyet.com</div>
             </div>
         </div>
     </div>
@@ -325,8 +343,11 @@
                     throw new Error(data.error || 'Failed to submit prediction');
                 }
 
-                // Show result
+                // Show result and hide form
                 displayResult(data);
+
+                // Hide the form
+                form.classList.add('hidden');
 
                 // Clear form
                 form.reset();
