@@ -88,12 +88,23 @@
         <div class="info-box">
             <p>
                 <strong>Betreiber:</strong> Jakob Repp<br>
-                <strong>Kontakt:</strong> <a href="https://github.com/iliquifysnacks/hastheaibubblepoppedyet">GitHub Repository</a>
+                <strong>Anschrift:</strong><br>
+                Reichenberger Str. 103<br>
+                10999 Berlin<br>
+                Deutschland
+            </p>
+            <p>
+                <strong>Kontakt:</strong><br>
+                E-Mail: <span id="email-address"></span>
             </p>
         </div>
 
         <h2>Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV</h2>
-        <p>Jakob Repp</p>
+        <p>
+            Jakob Repp<br>
+            Reichenberger Str. 103<br>
+            10999 Berlin
+        </p>
 
         <h2>Haftungsausschluss</h2>
 
@@ -123,5 +134,21 @@
             </p>
         </div>
     </div>
+
+    <script>
+        // Simple email obfuscation to prevent spam bots (legal, as it's still accessible to humans)
+        (function() {
+            const user = 'legal';
+            const domain = 'hastheaibubblepoppedyet.com';
+            const email = user + '@' + domain;
+            const emailElement = document.getElementById('email-address');
+
+            // Create mailto link
+            const link = document.createElement('a');
+            link.href = 'mailto:' + email;
+            link.textContent = email;
+            emailElement.appendChild(link);
+        })();
+    </script>
 </body>
 </html>
