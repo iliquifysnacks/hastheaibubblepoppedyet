@@ -12,3 +12,9 @@ CREATE TABLE IF NOT EXISTS predictions (
 -- Index for faster average calculations
 CREATE INDEX IF NOT EXISTS idx_predicted_date ON predictions(predicted_date);
 CREATE INDEX IF NOT EXISTS idx_submitted_at ON predictions(submitted_at);
+
+-- Index for rate limiting queries
+CREATE INDEX IF NOT EXISTS idx_ip_hash_submitted ON predictions(ip_hash, submitted_at);
+
+-- Index for case-insensitive username lookups
+CREATE INDEX IF NOT EXISTS idx_username_lower ON predictions(LOWER(username));

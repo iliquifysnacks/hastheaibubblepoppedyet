@@ -1,13 +1,16 @@
 // Cloudflare Pages Functions with D1 integration
 // API endpoints for AI bubble predictions
 
+const MAX_USERNAME_LENGTH = 50;
+const MAX_REQUEST_SIZE = 1024; // 1KB
+
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
 
-  // CORS headers
+  // CORS headers - restrict to your domain in production
   const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': '*', // TODO: Change to 'https://hastheaibubblepoppedyet.com' in production
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
   };
@@ -34,31 +37,104 @@ export async function onRequest(context) {
   return context.next();
 }
 
+// Hash IP address for rate limiting
+async function hashIP(ip) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(ip);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 // Submit a new prediction
 async function handleSubmitPrediction(request, env, corsHeaders) {
   try {
-    const body = await request.json();
-    const { username, daysUntilPop } = body;
-
-    // Validation
-    if (!daysUntilPop || daysUntilPop < 1 || daysUntilPop > 36500) {
-      return new Response(JSON.stringify({ error: 'Invalid days value (1-36500)' }), {
+    // Content-Type validation
+    const contentType = request.headers.get('Content-Type');
+    if (!contentType || !contentType.includes('application/json')) {
+      return new Response(JSON.stringify({ error: 'Invalid content type' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Check for duplicate username (if username is provided)
-    if (username && username.trim() !== '') {
+    // Request size limit
+    const contentLength = request.headers.get('Content-Length');
+    if (contentLength && parseInt(contentLength) > MAX_REQUEST_SIZE) {
+      return new Response(JSON.stringify({ error: 'Request too large' }), {
+        status: 413,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const body = await request.json();
+    const { username, daysUntilPop } = body;
+
+    // Input validation
+    if (typeof daysUntilPop !== 'number' || !Number.isInteger(daysUntilPop)) {
+      return new Response(JSON.stringify({ error: 'Invalid input' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (daysUntilPop < 1 || daysUntilPop > 36500) {
+      return new Response(JSON.stringify({ error: 'Invalid days value' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Username validation
+    if (username !== undefined && username !== null) {
+      if (typeof username !== 'string') {
+        return new Response(JSON.stringify({ error: 'Invalid input' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (username.trim().length > MAX_USERNAME_LENGTH) {
+        return new Response(JSON.stringify({ error: 'Username too long' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    // Get and hash client IP for rate limiting
+    const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
+    const ipHash = await hashIP(clientIP);
+
+    // Rate limiting: Check if IP has submitted in last 5 minutes
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const recentSubmission = await env.DB.prepare(
+      'SELECT id FROM predictions WHERE ip_hash = ? AND submitted_at > ?'
+    )
+      .bind(ipHash, fiveMinutesAgo)
+      .first();
+
+    if (recentSubmission) {
+      return new Response(
+        JSON.stringify({ error: 'Please wait before submitting again' }),
+        {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Check for duplicate username (case-insensitive)
+    const trimmedUsername = username && username.trim() !== '' ? username.trim() : null;
+    if (trimmedUsername) {
       const existingUser = await env.DB.prepare(
-        'SELECT id FROM predictions WHERE username = ? AND username IS NOT NULL'
+        'SELECT id FROM predictions WHERE LOWER(username) = LOWER(?) AND username IS NOT NULL'
       )
-        .bind(username.trim())
+        .bind(trimmedUsername)
         .first();
 
       if (existingUser) {
         return new Response(
-          JSON.stringify({ error: 'This username has already submitted a prediction' }),
+          JSON.stringify({ error: 'Username already taken' }),
           {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -72,16 +148,16 @@ async function handleSubmitPrediction(request, env, corsHeaders) {
     const predictedDate = new Date();
     predictedDate.setDate(predictedDate.getDate() + parseInt(daysUntilPop));
 
-    // Insert into database
-    const trimmedUsername = username && username.trim() !== '' ? username.trim() : null;
+    // Insert into database with IP hash
     const result = await env.DB.prepare(
-      'INSERT INTO predictions (username, days_until_pop, submitted_at, predicted_date) VALUES (?, ?, ?, ?)'
+      'INSERT INTO predictions (username, days_until_pop, submitted_at, predicted_date, ip_hash) VALUES (?, ?, ?, ?, ?)'
     )
       .bind(
         trimmedUsername,
         daysUntilPop,
         submittedAt,
-        predictedDate.toISOString()
+        predictedDate.toISOString(),
+        ipHash
       )
       .run();
 
@@ -106,7 +182,8 @@ async function handleSubmitPrediction(request, env, corsHeaders) {
     );
   } catch (error) {
     console.error('Error submitting prediction:', error);
-    return new Response(JSON.stringify({ error: 'Failed to submit prediction' }), {
+    // Don't leak error details to client
+    return new Response(JSON.stringify({ error: 'Server error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
